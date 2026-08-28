@@ -10,7 +10,7 @@
     ],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
-    "rootDir": "./src",
+    // "rootDir": "./src",
     "outDir": "./dist",
     "esModuleInterop": true,
     "ignoreDeprecations": "6.0"
