@@ -1,0 +1,61 @@
+name: Auto PR and Merge Staging to Main
+
+on:
+  push:
+    branches:
+      - staging
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Handle and Resolve Merge Conflicts
+        run: |
+          git fetch origin main:main
+          git checkout main
+          
+          # Attempt a merge. If conflicts happen, prioritize incoming staging branch (-X theirs)
+          if ! git merge origin/staging -m "Chore: Auto-merge staging into main"; then
+            echo "Conflict detected! Resolving conflicts by favoring staging branch changes..."
+            git merge --abort
+            git merge origin/staging -X theirs -m "Chore: Auto-merge staging into main (Conflicts resolved favoring staging)"
+          fi
+          
+          git checkout staging
+          git merge main -m "Chore: Sync conflict resolution back to staging"
+          git push origin staging
+
+      - name: Process Pull Request and Enable Auto-Merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_EXISTS=$(gh pr list --base main --head staging --json number --jq '..number')
+          
+          if [ -z "$PR_EXISTS" ]; then
+            echo "Creating a new Pull Request..."
+            PR_URL=$(gh pr create \
+              --base main \
+              --head staging \
+              --title "Automated PR: staging to main" \
+              --body "This pull request was automatically generated and prepared for auto-merge.")
+          else
+            echo "PR already exists. Fetching URL..."
+            PR_URL=$(gh pr list --base main --head staging --json url --jq '.[0].url')
+          }
+          
+          echo "Enabling auto-merge for $PR_URL..."
+          gh pr merge "$PR_URL" --auto --merge
