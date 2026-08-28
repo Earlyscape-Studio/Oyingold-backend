@@ -1,3 +1,4 @@
+# .github/workflows/auto-promote-dev-to-staging.yml
 name: Auto PR and Merge Dev to Staging
 
 on:
@@ -16,50 +17,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetches full history so git can calculate merges accurately
+          fetch-depth: 0
 
       - name: Configure Git Credentials
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Handle and Resolve Merge Conflicts
+      - name: Attempt Merge (fail on conflict)
         run: |
-          # Fetch latest tracking branches
           git fetch origin staging:staging
           git checkout staging
-          
-          # Attempt a merge. If conflicts happen, prioritize incoming dev branch (-X theirs)
-          if ! git merge origin/dev -m "Chore: Auto-merge dev into staging"; then
-            echo "Conflict detected! Resolving conflicts by favoring dev branch changes..."
-            git merge --abort
-            git merge origin/dev -X theirs -m "Chore: Auto-merge dev into staging (Conflicts resolved favoring dev)"
-          fi
-          
-          # Push the resolved merge state back into the dev branch so the PR remains clean
-          git checkout dev
-          git merge staging -m "Chore: Sync conflict resolution back to dev"
-          git push origin dev
 
-      - name: Process Pull Request and Enable Auto-Merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Check for existing PR
-          PR_EXISTS=$(gh pr list --base staging --head dev --json number --jq '..number')
-          
-          if [ -z "$PR_EXISTS" ]; then
-            echo "Creating a new Pull Request..."
-            PR_URL=$(gh pr create \
-              --base staging \
-              --head dev \
-              --title "Automated PR: dev to staging" \
-              --body "This pull request was automatically generated and prepared for auto-merge.")
-          else
-            echo "PR already exists. Fetching URL..."
-            PR_URL=$(gh pr list --base staging --head dev --json url --jq '.[0].url')
-          }
-          
-          # Tell GitHub to merge it automatically as soon as requirements/checks pass
-          echo "Enabling auto-merge for $PR_URL..."
-          gh pr merge "$PR_URL" --auto --merge
+          if ! git merge origin/dev -m "Chore: Auto-merge dev into staging"; then
+            echo "::error::Merge conflict between dev and staging. Resolve manually."
+            git merge --abort
+            exit 1
+          fi
+
+          git push origin staging
