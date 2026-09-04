@@ -1,4 +1,3 @@
-# .github/workflows/auto-promote-staging-to-main.yml
 name: Auto PR and Merge Staging to Main
 
 on:
@@ -11,28 +10,28 @@ permissions:
   contents: write
 
 jobs:
-  auto-promote:
+  promote:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Configure Git Credentials
+      - name: Create or find PR from staging to main
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Attempt Merge (fail on conflict)
-        run: |
-          git fetch origin main:main
-          git checkout main
-
-          if ! git merge origin/staging -m "Chore: Auto-merge staging into main"; then
-            echo "::error::Merge conflict between staging and main. Resolve manually."
-            git merge --abort
-            exit 1
+          existing=$(gh pr list --base main --head staging --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "number=$existing" >> "$GITHUB_OUTPUT"
+          else
+            url=$(gh pr create --base main --head staging \
+              --title "Chore: Promote staging to main" \
+              --body "Automated PR promoting staging into main.")
+            echo "number=$(echo "$url" | grep -o '[0-9]*$')" >> "$GITHUB_OUTPUT"
           fi
 
-          git push origin main
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_TOKEN }}
+        run: gh pr merge --auto --squash "${{ steps.pr.outputs.number }}"

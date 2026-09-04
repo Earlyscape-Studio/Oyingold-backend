@@ -14,11 +14,10 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
-      "@/lib/*": ["lib/*"],
-      "@/generated/*": ["generated/*"],
-      "@/*": ["src/*"]
+      "@/lib/*": ["./lib/*"],
+      "@/generated/*": ["./generated/*"],
+      "@/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules"]
