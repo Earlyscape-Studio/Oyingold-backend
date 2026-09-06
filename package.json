@@ -4,8 +4,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
-    "start": "node dist/index.js",
-    "mirgrate": "npx prisma migrate dev --name init",
+    "start": "node --import ./instrument.mjs dist/src/index.js",
+    "migrate": "npx prisma migrate dev --name init",
     "generate": "npx prisma generate",
     "seed": "npx prisma db seed",
     "studio": "npx prisma studio"
@@ -14,6 +14,8 @@
     "@hono/node-server": "^2.1.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@sentry/hono": "^10.73.0",
+    "@sentry/node": "^10.73.0",
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^17.4.2",
     "hono": "^4.13.3",
