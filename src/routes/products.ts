@@ -67,7 +67,7 @@ products.post("/", requireAdmin,  async (c) => {
 
 
 
-    if (!name || !categoryId || brandId){
+    if (!name || !categoryId || brandId!){
         return c.json({
             error: "name, categoryId, and brandId are required"
         }, 400);
@@ -101,7 +101,7 @@ products.post("/", requireAdmin,  async (c) => {
             },
             include: {
                 category: true,
-                brands: true,
+                brand: true,
                 variants: true
             }
         });
