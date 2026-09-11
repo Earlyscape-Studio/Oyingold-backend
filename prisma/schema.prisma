@@ -60,6 +60,8 @@ model Product {
   description String?
   categoryId  String
   brandId     String
+  images      String[] @default([])
+  isFeatured  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
