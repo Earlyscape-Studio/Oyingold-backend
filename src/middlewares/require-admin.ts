@@ -2,8 +2,6 @@ import type {Context, Next} from "hono"
 import {supabaseAdmin} from "@/lib/supabase.js"
 
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
-
 
 export async function requireAdmin (c: Context, next: Next) {
     const authHeader = c.req.header("Authorization") ?? "";
@@ -24,7 +22,9 @@ export async function requireAdmin (c: Context, next: Next) {
     }
     
 
-    if(!ADMIN_EMAILS.includes(data.user.email.toLowerCase())){
+    const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
+
+    if(!adminEmails.includes(data.user.email.toLowerCase())){
         return c.json({error: "Unauthorized as admin"}, 403)
     }
 

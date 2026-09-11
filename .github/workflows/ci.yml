@@ -19,7 +19,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
 
       - name: Install dependencies
@@ -30,6 +30,9 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+      
+      - name: Test
+        run: npm run test:run
 
       - name: Build
         run: npm run build
