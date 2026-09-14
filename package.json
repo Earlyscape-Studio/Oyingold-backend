@@ -7,7 +7,7 @@
     "start": "node --import ./instrument.mjs dist/src/index.js",
     "test": "vitest",
     "test:run": "vitest run",
-    "migrate": "npx prisma migrate dev --name init",
+    "migrate": "npx prisma migrate dev --name",
     "generate": "npx prisma generate",
     "seed": "npx prisma db seed",
     "studio": "npx prisma studio"
