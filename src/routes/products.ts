@@ -119,12 +119,12 @@ export const products = new Hono()
         const {name, description, categoryId, brandId, images, isFeatured} = body ?? {};
 
         const data: Record<string, unknown> = {}
-        if(name !== "undefined") data.name = name;
-        if(description !== "undefined") data.description = description || null;
-        if(categoryId !== "undefined") data.categoryId = categoryId;
-        if(brandId !== "undefined") data.brandId = brandId;
-        if(images !== "undefined") data.images = images;
-        if(isFeatured !== "undefined") data.isFeatured = isFeatured;
+        if(name !== undefined) data.name = name;
+        if(description !== undefined) data.description = description || null;
+        if(categoryId !== undefined) data.categoryId = categoryId;
+        if(brandId !== undefined) data.brandId = brandId;
+        if(images !== undefined) data.images = images;
+        if(isFeatured !== undefined) data.isFeatured = isFeatured;
 
         if(Object.keys(data).length === 0){
             return c.json({
