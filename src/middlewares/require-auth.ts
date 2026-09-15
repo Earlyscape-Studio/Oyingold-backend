@@ -16,7 +16,7 @@ export async function requireAuth(c: Context<AppEnv>, next: Next){
     const {data, error} = await supabaseAdmin.auth.getUser(token);
 
 
-    if(error || data?.user?.id){
+    if(error || !data?.user?.id){
         return c.json({error: "Invalid or expired session"}, 401)
     }
 
