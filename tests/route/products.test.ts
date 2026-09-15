@@ -9,6 +9,9 @@ vi.mock("@/lib/prisma.js", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -158,9 +161,17 @@ describe("POST /products", () => {
 
   it("rejects non-admin users", async () => {
     const { supabaseAdmin } = await import("@/lib/supabase.js");
+    const { prisma } = await import("@/lib/prisma.js");
+
     vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
-      data: { user: { email: "not-admin@example.com" } },
+      data: { user: { id: "non-admin-id", email: "not-admin@example.com" } },
       error: null,
+    } as any);
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u1",
+      supabaseId: "non-admin-id",
+      role: "CUSTOMER",
     } as any);
 
     const res = await products.request("/", {
@@ -177,11 +188,18 @@ describe("POST /products", () => {
 
   it("rejects a request missing required fields", async () => {
     const { supabaseAdmin } = await import("@/lib/supabase.js");
+    const { prisma } = await import("@/lib/prisma.js");
+
     vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
-      data: { user: { email: "admin@oyingold.com" } },
+      data: { user: { id: "admin-id", email: "admin@oyingold.com" } },
       error: null,
     } as any);
-    process.env.ADMIN_EMAILS = "admin@oyingold.com";
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u2",
+      supabaseId: "admin-id",
+      role: "ADMIN",
+    } as any);
 
     const res = await products.request("/", {
       method: "POST",
@@ -200,10 +218,16 @@ describe("POST /products", () => {
     const { prisma } = await import("@/lib/prisma.js");
 
     vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
-      data: { user: { email: "admin@oyingold.com" } },
+      data: { user: { id: "admin-id", email: "admin@oyingold.com" } },
       error: null,
     } as any);
-    process.env.ADMIN_EMAILS = "admin@oyingold.com";
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u2",
+      supabaseId: "admin-id",
+      role: "ADMIN",
+    } as any);
+
     vi.mocked(prisma.product.create).mockResolvedValueOnce(fakeProduct as any);
 
     const res = await products.request("/", {
