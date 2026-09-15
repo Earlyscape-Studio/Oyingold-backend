@@ -55,7 +55,7 @@ export const dashboard = new Hono()
             }>>`
              SELECT pv.id, pv.sku, pv."unitLabel", pv."stockLevel", pv."lowStockThreshold", p.name as "productName"
              FROM "ProductVariant" pv
-             JOIN "Product" p ON p.id = pv."productId
+             JOIN "Product" p ON p.id = pv."productId"
              WHERE pv."stockLevel" <= pv."lowStockThreshold"
              ORDER BY pv."stockLevel" ASC
             `

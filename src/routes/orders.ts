@@ -30,12 +30,12 @@ export const orders = new Hono()
             id: true,
             email: true,
           },
-          items: {
-            include: {
-              productVariant: {
-                include: {
-                  product: true,
-                },
+        },
+        items: {
+          include: {
+            productVariant: {
+              include: {
+                product: true,
               },
             },
           },
