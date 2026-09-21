@@ -1,0 +1,31 @@
+{
+  "name": "oyingold-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "NODE_ENV": "production"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "d3de703f36d64a359de292f2bcaf8ae6"
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "oyingold-backend-staging",
+      "vars": {
+        "NODE_ENV": "staging"
+      },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "d3de703f36d64a359de292f2bcaf8ae6"
+        }
+      ]
+    }
+  }
+}

@@ -1,11 +1,13 @@
 import {Hono} from "hono"
-import {prisma} from "@/lib/prisma.js"
+// import {prisma} from "@/lib/prisma.js"
+import type {AppEnv} from "@/types/hono.js";
 import {requireAdmin} from "@/middlewares/require-admin.js"
 
 
-export const products = new Hono()
+export const products = new Hono<AppEnv>()
     //products search by category, brand or unique search query
     .get("/", async (c) => {
+        const prisma = c.get("prisma");
         const {category, brand, q} = c.req.query();
 
 
@@ -32,6 +34,7 @@ export const products = new Hono()
 
     //GET product:id - individual product
     .get("/:id", async (c) => {
+        const prisma = c.get("prisma");
         const id = c.req.param("id");
 
         const product = await prisma.product.findUnique({
@@ -57,6 +60,7 @@ export const products = new Hono()
 
     //POST - create a new product
     .post("/", requireAdmin,  async (c) => {
+        const prisma = c.get("prisma");
         const body = await c.req.json();
        
         const {name, description, categoryId, brandId, images, variant} = body ?? {};
@@ -113,6 +117,7 @@ export const products = new Hono()
         }
     })
     .patch("/:id", requireAdmin, async (c) => {
+        const prisma = c.get("prisma");
         const id = c.req.param("id");
         const body = await c.req.json();
 
@@ -157,6 +162,7 @@ export const products = new Hono()
         }
     })
     .delete("/:id", requireAdmin, async (c) => {
+        const prisma = c.get("prisma");
         const id = c.req.param("id");
 
         const product = await prisma.product.findUnique({
@@ -194,6 +200,7 @@ export const products = new Hono()
         return c.json({success: true});
     })
     .patch("/:id/variants/:variantId", requireAdmin, async (c) => {
+        const prisma = c.get("prisma");
         const {id, variantId} = c.req.param();
         const body = await c.req.json();
 
@@ -242,6 +249,7 @@ export const products = new Hono()
 
     })
     .delete("/:id/variants/:variantId", requireAdmin, async (c) => {
+        const prisma = c.get("prisma");
         const {id, variantId} = c.req.param();
 
         const variant = await prisma.productVariant.findUnique({

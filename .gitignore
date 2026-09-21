@@ -29,4 +29,6 @@ lerna-debug.log*
 
 /generated/prisma
 
+wrangler.jsonc
+
 dist/

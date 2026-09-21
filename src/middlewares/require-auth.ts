@@ -1,6 +1,6 @@
 import type {Context, Next} from "hono";
-import {supabaseAdmin} from "@/lib/supabase.js";
-import {prisma} from "@/lib/prisma.js";
+// import {supabaseAdmin} from "@/lib/supabase.js";
+// import {prisma} from "@/lib/prisma.js";
 import type {AppEnv} from "@/types/hono.js";
 
 
@@ -13,7 +13,12 @@ export async function requireAuth(c: Context<AppEnv>, next: Next){
         return c.json({error: "Missing Authorization Header"}, 401)
     }
 
-    const {data, error} = await supabaseAdmin.auth.getUser(token);
+    const supabase = c.get("supabase");
+    const prisma = c.get("prisma");
+
+
+
+    const {data, error} = await supabase.auth.getUser(token);
 
 
     if(error || !data?.user?.id){
@@ -21,8 +26,8 @@ export async function requireAuth(c: Context<AppEnv>, next: Next){
     }
 
     const user = await prisma.user.findUnique({
-        where: {supabaseId: data.user.id}
-    })
+        where: {supabaseId: data.user.id},
+    });
 
     if(!user){
         return c.json({error: "No account found for this session"}, 401);
