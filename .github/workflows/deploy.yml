@@ -12,11 +12,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm ci
 
       - run: npx prisma generate
+
+      - name: Check Wrangler
+        run: npx wrangler --version
 
       - name: Deploy to production
         if: github.ref == 'refs/heads/main'
