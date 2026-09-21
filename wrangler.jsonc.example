@@ -1,0 +1,17 @@
+{
+  "name": "oyingold-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "NODE_ENV": "development",
+    "SENTRY_DSN": "<your Sentry DSN>"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "<your Hyperdrive config id>",
+      "localConnectionString": "<your local/dev Postgres connection string>"
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 import { Hono } from "hono";
-import { prisma } from "@/lib/prisma.js";
+// import { prisma } from "@/lib/prisma.js";
 import { requireAdmin } from "@/middlewares/require-admin.js";
+import type {AppEnv} from "@/types/hono.js";
 
-export const brands = new Hono()
+export const brands = new Hono<AppEnv>()
   .get("/", async (c) => {
+    const prisma = c.get("prisma");
     const list = await prisma.brand.findMany({
       orderBy: { name: "asc" },
     });
@@ -11,6 +13,7 @@ export const brands = new Hono()
     return c.json(list);
   })
   .post("/", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const body = await c.req.json();
 
     const { name, slug } = body ?? {};
@@ -43,6 +46,7 @@ export const brands = new Hono()
     }
   })
   .patch("/:id", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const id = c.req.param("id");
     const body = await c.req.json();
 
@@ -82,6 +86,7 @@ export const brands = new Hono()
     }
   })
   .delete("/:id", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const id = c.req.param("id");
 
     // const body = await c.req.json();

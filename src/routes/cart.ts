@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "@/types/hono.js";
-import { prisma } from "@/lib/prisma.js";
+// import { prisma } from "@/lib/prisma.js";
+import {PrismaClient} from "@/generated/prisma/client.js";
 import { requireAuth } from "@/middlewares/require-auth.js";
 
 const CART_INCLUDE = {
@@ -14,7 +15,7 @@ const CART_INCLUDE = {
   },
 };
 
-async function getOrCreateCart(userId: string) {
+async function getOrCreateCart(prisma: PrismaClient, userId: string) {
   const existing = await prisma.cart.findUnique({
     where: { userId },
     include: CART_INCLUDE,
@@ -30,12 +31,14 @@ async function getOrCreateCart(userId: string) {
 
 export const cart = new Hono<AppEnv>()
   .get("/", requireAuth, async (c) => {
+    const prisma = c.get("prisma");
     const user = c.get("user");
-    const userCart = await getOrCreateCart(user.id);
+    const userCart = await getOrCreateCart(prisma, user.id);
     return c.json(userCart);
   })
 
   .post("/items", requireAuth, async (c) => {
+    const prisma = c.get("prisma");
     const user = c.get("user");
     const body = await c.req.json();
 
@@ -72,7 +75,7 @@ export const cart = new Hono<AppEnv>()
       return c.json({ error: "This variant is not sold by the piece" }, 400);
     }
 
-    const userCart = await getOrCreateCart(user.id);
+    const userCart = await getOrCreateCart(prisma, user.id);
 
     const existingItem = await prisma.cartItem.findUnique({
       where: {
@@ -108,6 +111,7 @@ export const cart = new Hono<AppEnv>()
     return c.json(updatedCart, 201);
   })
   .patch("/items/:itemId", requireAuth, async (c) => {
+    const prisma = c.get("prisma");
     const user = c.get("user");
     const itemId = c.req.param("itemId");
     const body = await c.req.json();
@@ -133,6 +137,7 @@ export const cart = new Hono<AppEnv>()
       data: { quantity: qty },
     });
 
+
     const updatedCart = await prisma.cart.findUnique({
       where: { id: item.cartId },
       include: CART_INCLUDE,
@@ -142,6 +147,7 @@ export const cart = new Hono<AppEnv>()
   })
 
   .delete("/items/:itemId", requireAuth, async (c) => {
+    const prisma = c.get("prisma");
     const user = c.get("user");
     const itemId = c.req.param("itemId");
 
@@ -165,6 +171,7 @@ export const cart = new Hono<AppEnv>()
   })
 
   .delete("/", requireAuth, async (c) => {
+    const prisma = c.get("prisma");
     const user = c.get("user");
 
     const userCart = await prisma.cart.findUnique({
