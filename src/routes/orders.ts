@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { prisma } from "@/lib/prisma.js";
+// import { prisma } from "@/lib/prisma.js";
+import type {AppEnv} from "@/types/hono.js";
 import { requireAdmin } from "@/middlewares/require-admin.js";
 
 const VALID_STATUSES = [
@@ -11,8 +12,9 @@ const VALID_STATUSES = [
   "CANCELLED",
 ] as const;
 
-export const orders = new Hono()
+export const orders = new Hono<AppEnv>()
   .get("/", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const { status } = c.req.query();
 
     if (status && !VALID_STATUSES.includes(status as any)) {
@@ -50,6 +52,7 @@ export const orders = new Hono()
   })
 
   .get("/id", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const id = c.req.param("id");
 
     const order = await prisma.order.findUnique({
@@ -81,6 +84,7 @@ export const orders = new Hono()
   })
 
   .patch("/:id/statuus", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
     const id = c.req.param("id");
     const body = await c.req.json();
 

@@ -2,9 +2,8 @@
   "name": "oyingold-backend",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
-    "start": "node --import ./instrument.mjs dist/src/index.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "vitest",
     "test:run": "vitest run",
     "migrate": "npx prisma migrate dev --name",
@@ -13,18 +12,15 @@
     "studio": "npx prisma studio"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@sentry/cloudflare": "^10.73.0",
     "@sentry/hono": "^10.73.0",
-    "@sentry/node": "^10.73.0",
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^17.4.2",
     "hono": "^4.13.3",
-    "hono-pino": "^0.10.3",
     "pg": "^8.23.0",
-    "pino": "^10.3.1",
-    "tsc-alias": "^1.9.5"
+    "pino": "^10.3.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
@@ -33,7 +29,8 @@
     "prisma": "^7.10.0",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.135.0"
   },
   "optionalDependencies": {
     "@typescript/typescript-linux-x64": "7.0.2"

@@ -1,5 +1,6 @@
 import {Hono} from "hono";
-import {prisma} from "@/lib/prisma.js";
+// import {prisma} from "@/lib/prisma.js";
+import type {AppEnv} from "@/types/hono.js";
 import { OrderStatus } from "@/generated/prisma/client.js";
 import {requireAdmin} from "@/middlewares/require-admin.js";
 
@@ -7,8 +8,9 @@ import {requireAdmin} from "@/middlewares/require-admin.js";
 
 const UNPAID_STATUSES: OrderStatus[] = [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED];
 
-export const dashboard = new Hono()
+export const dashboard = new Hono<AppEnv>()
     .get("/stats", requireAdmin, async (c) => {
+        const prisma = c.get("prisma");
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
