@@ -22,6 +22,7 @@ app.use(
   sentry(app, (env) => ({
     dsn: env.SENTRY_DSN,
     tracesSampleRate: 1.0,
+    environment: env.NODE_ENV,
   }))
 );
 
