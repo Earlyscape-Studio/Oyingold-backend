@@ -1,27 +1,46 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { testClient } from "hono/testing";
 import { products } from "@/routes/products.js";
+import {withMocks} from "../utils/with-mocks.js";
 
-vi.mock("@/lib/prisma.js", () => ({
-  prisma: {
-    product: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    user: {
-      findUnique: vi.fn(),
-    },
-  },
-}));
+// vi.mock("@/lib/prisma.js", () => ({
+//   prisma: {
+//     product: {
+//       findMany: vi.fn(),
+//       findUnique: vi.fn(),
+//       create: vi.fn(),
+//     },
+//     user: {
+//       findUnique: vi.fn(),
+//     },
+//   },
+// }));
 
-vi.mock("@/lib/supabase.js", () => ({
-  supabaseAdmin: {
-    auth: {
-      getUser: vi.fn(),
-    },
+
+const mockPrisma = {
+  product: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn()
   },
-}));
+  user: {
+    findUnique: vi.fn()
+  }
+}
+
+// vi.mock("@/lib/supabase.js", () => ({
+//   supabaseAdmin: {
+//     auth: {
+//       getUser: vi.fn(),
+//     },
+//   },
+// }));
+
+const mockSupabase = {
+  auth: {
+    getUser: vi.fn()
+  }
+}
 
 const fakeProduct = {
   id: "p1",
@@ -42,37 +61,37 @@ const fakeProduct = {
   variants: [],
 };
 
+
+
+function client (){
+  return testClient(
+    withMocks(products, {prisma: mockPrisma, supabase: mockSupabase})
+  )
+}
+
+
 describe("GET /products", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns the full list with no filters", async () => {
-    const { prisma } = await import("@/lib/prisma.js");
-    vi.mocked(prisma.product.findMany).mockResolvedValueOnce([
-      fakeProduct,
-    ] as any);
+    mockPrisma.product.findMany.mockResolvedValueOnce([fakeProduct] as any);
 
-    const client = testClient(products);
-    const res = await client.index.$get({ query: {} });
+    const res = await client().index.$get({ query: {} });
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([fakeProduct]);
-    expect(prisma.product.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: {} })
     );
   });
 
   it("filters category by slug when provided", async () => {
-    const { prisma } = await import("@/lib/prisma.js");
-    vi.mocked(prisma.product.findMany).mockResolvedValueOnce([
-      fakeProduct,
-    ] as any);
+    mockPrisma.product.findMany.mockResolvedValueOnce([fakeProduct] as any);
+    await client().index.$get({ query: { category: "vegetable-oil" } });
 
-    const client = testClient(products);
-    await client.index.$get({ query: { category: "vegetable-oil" } });
-
-    expect(prisma.product.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           category: {
@@ -84,13 +103,10 @@ describe("GET /products", () => {
   });
 
   it("filters by search query case-insensitively", async () => {
-    const { prisma } = await import("@/lib/prisma.js");
-    vi.mocked(prisma.product.findMany).mockResolvedValueOnce([]);
+    mockPrisma.product.findMany.mockResolvedValueOnce([]);
+    await client().index.$get({ query: { q: "oil" } });
 
-    const client = testClient(products);
-    await client.index.$get({ query: { q: "oil" } });
-
-    expect(prisma.product.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           name: {
@@ -109,24 +125,16 @@ describe("GET /products/:id", () => {
   });
 
   it("returns the product when found", async () => {
-    const { prisma } = await import("@/lib/prisma.js");
-    vi.mocked(prisma.product.findUnique).mockResolvedValueOnce(
-      fakeProduct as any
-    );
-
-    const client = testClient(products);
-    const res = await client[":id"].$get({ param: { id: "p1" } });
+    mockPrisma.product.findUnique.mockResolvedValueOnce(fakeProduct as any);
+    const res = await client()[":id"].$get({ param: { id: "p1" } });
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(fakeProduct);
   });
 
   it("returns 404 when the product doesn't exist", async () => {
-    const { prisma } = await import("@/lib/prisma.js");
-    vi.mocked(prisma.product.findUnique).mockResolvedValueOnce(null);
-
-    const client = testClient(products);
-    const res = await client[":id"].$get({ param: { id: "missing" } });
+    mockPrisma.product.findUnique.mockResolvedValueOnce(null);
+    const res = await client()[":id"].$get({ param: { id: "missing" } });
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Product not found" });
@@ -150,7 +158,10 @@ describe("POST /products", () => {
   };
 
   it("rejects requests with no Authorization header", async () => {
-    const res = await products.request("/", {
+    const res = await withMocks(products, {
+      prisma: mockPrisma,
+      supabase: mockSupabase
+    }).request("/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(validBody),
@@ -160,21 +171,22 @@ describe("POST /products", () => {
   });
 
   it("rejects non-admin users", async () => {
-    const { supabaseAdmin } = await import("@/lib/supabase.js");
-    const { prisma } = await import("@/lib/prisma.js");
 
-    vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "non-admin-id", email: "not-admin@example.com" } },
       error: null,
     } as any);
 
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
       id: "u1",
       supabaseId: "non-admin-id",
       role: "CUSTOMER",
     } as any);
 
-    const res = await products.request("/", {
+    const res = await withMocks(products, {
+      prisma: mockPrisma,
+      supabase: mockSupabase
+    }).request("/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -187,21 +199,22 @@ describe("POST /products", () => {
   });
 
   it("rejects a request missing required fields", async () => {
-    const { supabaseAdmin } = await import("@/lib/supabase.js");
-    const { prisma } = await import("@/lib/prisma.js");
 
-    vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "admin-id", email: "admin@oyingold.com" } },
       error: null,
     } as any);
 
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
       id: "u2",
       supabaseId: "admin-id",
       role: "ADMIN",
     } as any);
 
-    const res = await products.request("/", {
+    const res = await withMocks(products, {
+      prisma: mockPrisma,
+      supabase: mockSupabase
+    }).request("/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -214,23 +227,24 @@ describe("POST /products", () => {
   });
 
   it("creates a product for a valid admin request", async () => {
-    const { supabaseAdmin } = await import("@/lib/supabase.js");
-    const { prisma } = await import("@/lib/prisma.js");
-
-    vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValueOnce({
+  
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "admin-id", email: "admin@oyingold.com" } },
       error: null,
     } as any);
 
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
       id: "u2",
       supabaseId: "admin-id",
       role: "ADMIN",
     } as any);
 
-    vi.mocked(prisma.product.create).mockResolvedValueOnce(fakeProduct as any);
+    mockPrisma.product.create.mockResolvedValueOnce(fakeProduct as any);
 
-    const res = await products.request("/", {
+    const res = await withMocks(products, {
+      prisma: mockPrisma,
+      supabase: mockSupabase
+    }).request("/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
