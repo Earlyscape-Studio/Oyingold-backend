@@ -25,12 +25,35 @@ export async function requireAuth(c: Context<AppEnv>, next: Next){
         return c.json({error: "Invalid or expired session"}, 401)
     }
 
-    const user = await prisma.user.findUnique({
-        where: {supabaseId: data.user.id},
+    const supabaseUser = data.user;
+
+    let user = await prisma.user.findUnique({
+        where: {supabaseId: supabaseUser.id},
     });
 
     if(!user){
-        return c.json({error: "No account found for this session"}, 401);
+        if(!supabaseUser.email){
+            return c.json({error: "Account has no email on file"}, 401);
+        }
+
+        try{
+            user = await prisma.user.create({
+                data: {
+                    supabaseId: supabaseUser.id,
+                    email: supabaseUser.email
+                }
+            });
+        }catch(createError){
+            user = await prisma.user.findUnique({
+                where: {
+                    supabaseId: supabaseUser.id
+                }
+            });
+
+            if(!user){
+                throw createError;
+            }
+        }
     }
 
     c.set("user", user);
