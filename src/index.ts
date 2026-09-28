@@ -14,6 +14,7 @@ import { dbMiddleware } from "@/middlewares/db.js";
 import { supabaseMiddleware } from "@/middlewares/supabase.js";
 import type {AppEnv} from "@/types/hono.js";
 import {me} from "@/routes/me.js";
+import {adminUsers} from "@/routes/admin-users.js";
 
 const app = new Hono<AppEnv>();
 
@@ -48,6 +49,7 @@ app.route("/orders", orders)
 app.route("/dashboard", dashboard)
 app.route("/cart", cart)
 app.route("/me", me)
+app.route("/admin/users", adminUsers);
 
 
 app.route("/health", health);

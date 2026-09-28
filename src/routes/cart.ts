@@ -41,9 +41,9 @@ export const cart = new Hono<AppEnv>()
     const prisma = c.get("prisma");
     const user = c.get("user");
     const body = await c.req.json();
-
+ 
     const { productVariantId, quantity, pricingType } = body ?? {};
-
+ 
     if (
       !productVariantId ||
       !pricingType ||
@@ -57,26 +57,40 @@ export const cart = new Hono<AppEnv>()
         400
       );
     }
-
+ 
     const qty = Number(quantity) || 1;
     if (qty < 1) {
       return c.json({ error: "quantity must be at least 1" }, 400);
     }
-
+ 
     const variant = await prisma.productVariant.findUnique({
       where: { id: productVariantId },
     });
-
+ 
     if (!variant) {
       return c.json({ error: "Product variant not found" }, 404);
     }
-
+ 
     if (pricingType === "piece" && variant.piecePrice === null) {
       return c.json({ error: "This variant is not sold by the piece" }, 400);
     }
-
+ 
+    if (variant.stockLevel <= 0) {
+      return c.json({ error: "This item is out of stock" }, 400);
+    }
+ 
+    const priceForType =
+      pricingType === "piece" ? variant.piecePrice : variant.cartonPrice;
+ 
+    if (!priceForType || Number(priceForType) <= 0) {
+      return c.json(
+        { error: "This item isn't available for purchase yet" },
+        400
+      );
+    }
+ 
     const userCart = await getOrCreateCart(prisma, user.id);
-
+ 
     const existingItem = await prisma.cartItem.findUnique({
       where: {
         cartId_productVariantId_pricingType: {
@@ -86,7 +100,7 @@ export const cart = new Hono<AppEnv>()
         },
       },
     });
-
+ 
     if (existingItem) {
       await prisma.cartItem.update({
         where: { id: existingItem.id },
@@ -102,12 +116,12 @@ export const cart = new Hono<AppEnv>()
         },
       });
     }
-
+ 
     const updatedCart = await prisma.cart.findUnique({
       where: { id: userCart.id },
       include: CART_INCLUDE,
     });
-
+ 
     return c.json(updatedCart, 201);
   })
   .patch("/items/:itemId", requireAuth, async (c) => {
