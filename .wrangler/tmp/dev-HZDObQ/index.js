@@ -35289,6 +35289,16 @@ var cart = new Hono2().get("/", requireAuth, async (c2) => {
   if (pricingType === "piece" && variant.piecePrice === null) {
     return c2.json({ error: "This variant is not sold by the piece" }, 400);
   }
+  if (variant.stockLevel <= 0) {
+    return c2.json({ error: "This item is out of stock" }, 400);
+  }
+  const priceForType = pricingType === "piece" ? variant.piecePrice : variant.cartonPrice;
+  if (!priceForType || Number(priceForType) <= 0) {
+    return c2.json(
+      { error: "This item isn't available for purchase yet" },
+      400
+    );
+  }
   const userCart = await getOrCreateCart(prisma, user.id);
   const existingItem = await prisma.cartItem.findUnique({
     where: {
@@ -57707,6 +57717,68 @@ var me = new Hono2().get("/", requireAuth, async (c2) => {
   });
 });
 
+// src/routes/admin-users.ts
+init_modules_watch_stub();
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var adminUsers = new Hono2().get("/", requireAdmin, async (c2) => {
+  const prisma = c2.get("prisma");
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN" },
+    select: { id: true, email: true, createdAt: true },
+    orderBy: { createdAt: "asc" }
+  });
+  return c2.json(admins);
+}).post("/", requireAdmin, async (c2) => {
+  const prisma = c2.get("prisma");
+  const supabase = c2.get("supabase");
+  const body = await c2.req.json().catch(() => null);
+  const email = body?.email?.trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    return c2.json({ error: "A valid email is required" }, 400);
+  }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    if (existing.role === "ADMIN") {
+      return c2.json(
+        { error: "This email is already an admin" },
+        409
+      );
+    }
+    const updated = await prisma.user.update({
+      where: { id: existing.id },
+      data: { role: "ADMIN" },
+      select: { id: true, email: true, createdAt: true }
+    });
+    return c2.json(updated, 200);
+  }
+  const { data, error: error2 } = await supabase.auth.admin.inviteUserByEmail(email);
+  if (error2 || !data?.user?.id) {
+    return c2.json(
+      { error: error2?.message ?? "Failed to invite this email" },
+      400
+    );
+  }
+  try {
+    const created = await prisma.user.create({
+      data: {
+        supabaseId: data.user.id,
+        email,
+        role: "ADMIN"
+      },
+      select: { id: true, email: true, createdAt: true }
+    });
+    return c2.json(created, 201);
+  } catch (err) {
+    if (err?.code === "P2002") {
+      return c2.json(
+        { error: "This email is already registered" },
+        409
+      );
+    }
+    throw err;
+  }
+});
+
 // src/index.ts
 var app = new Hono2();
 app.use(
@@ -57732,6 +57804,7 @@ app.route("/orders", orders);
 app.route("/dashboard", dashboard);
 app.route("/cart", cart);
 app.route("/me", me);
+app.route("/admin/users", adminUsers);
 app.route("/health", health);
 var src_default = app;
 
