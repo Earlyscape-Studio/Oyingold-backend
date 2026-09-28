@@ -31,4 +31,6 @@ lerna-debug.log*
 
 wrangler.jsonc
 
+.wrangler/
+
 dist/
