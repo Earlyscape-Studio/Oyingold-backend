@@ -12,6 +12,7 @@ import {dashboard} from "@/routes/dashboard.js"
 import {cart} from "@/routes/cart.js";
 import { dbMiddleware } from "@/middlewares/db.js";
 import { supabaseMiddleware } from "@/middlewares/supabase.js";
+import { mailMiddleware } from "@/middlewares/mail.js";
 import type {AppEnv} from "@/types/hono.js";
 import {me} from "@/routes/me.js";
 import {adminUsers} from "@/routes/admin-users.js";
@@ -35,6 +36,7 @@ app.use('*', cors({
 
 app.use("*", dbMiddleware);
 app.use("*", supabaseMiddleware);
+app.use("*", mailMiddleware);
 
 
 app.get('/', (c) => {
