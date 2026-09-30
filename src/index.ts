@@ -51,7 +51,7 @@ app.route("/orders", orders)
 app.route("/dashboard", dashboard)
 app.route("/cart", cart)
 app.route("/me", me)
-app.route("/admin/users", adminUsers);
+app.route("/admin/users", adminUsers)
 
 
 app.route("/health", health);
