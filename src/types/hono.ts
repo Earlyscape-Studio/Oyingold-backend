@@ -1,5 +1,6 @@
 import type {User, PrismaClient} from "@/generated/prisma/client.js";
 import type {SupabaseClient} from "@supabase/supabase-js";
+import type {Resend} from "resend";
 import type {Bindings} from "@/env.js";
 
 
@@ -10,5 +11,6 @@ export type AppEnv = {
         user: User;
         prisma: PrismaClient;
         supabase: SupabaseClient;
+        resend: Resend;
     }
 }
