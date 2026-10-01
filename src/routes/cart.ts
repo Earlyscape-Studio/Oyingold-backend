@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "@/types/hono.js";
 // import { prisma } from "@/lib/prisma.js";
-import {PrismaClient} from "@/generated/prisma/client.js";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import { requireAuth } from "@/middlewares/require-auth.js";
 
 const CART_INCLUDE = {
@@ -40,7 +40,7 @@ export const cart = new Hono<AppEnv>()
   .post("/items", requireAuth, async (c) => {
     const prisma = c.get("prisma");
     const user = c.get("user");
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => null);
  
     const { productVariantId, quantity, pricingType } = body ?? {};
  
@@ -58,9 +58,9 @@ export const cart = new Hono<AppEnv>()
       );
     }
  
-    const qty = Number(quantity) || 1;
-    if (qty < 1) {
-      return c.json({ error: "quantity must be at least 1" }, 400);
+    const qty = quantity === undefined ? 1 : Number(quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+      return c.json({ error: "quantity must be a whole number of at least 1" }, 400);
     }
  
     const variant = await prisma.productVariant.findUnique({
@@ -91,7 +91,9 @@ export const cart = new Hono<AppEnv>()
  
     const userCart = await getOrCreateCart(prisma, user.id);
  
-    const existingItem = await prisma.cartItem.findUnique({
+    // Atomic add-or-increment. A find-then-create would 500 when the same item
+    // is added twice at once (double click), because of the unique constraint.
+    await prisma.cartItem.upsert({
       where: {
         cartId_productVariantId_pricingType: {
           cartId: userCart.id,
@@ -99,23 +101,14 @@ export const cart = new Hono<AppEnv>()
           pricingType,
         },
       },
+      create: {
+        cartId: userCart.id,
+        productVariantId,
+        pricingType,
+        quantity: qty,
+      },
+      update: { quantity: { increment: qty } },
     });
- 
-    if (existingItem) {
-      await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: { quantity: existingItem.quantity + qty },
-      });
-    } else {
-      await prisma.cartItem.create({
-        data: {
-          cartId: userCart.id,
-          productVariantId,
-          pricingType,
-          quantity: qty,
-        },
-      });
-    }
  
     const updatedCart = await prisma.cart.findUnique({
       where: { id: userCart.id },
@@ -128,13 +121,13 @@ export const cart = new Hono<AppEnv>()
     const prisma = c.get("prisma");
     const user = c.get("user");
     const itemId = c.req.param("itemId");
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => null);
 
     const { quantity } = body ?? {};
     const qty = Number(quantity);
 
-    if (!qty || qty < 1) {
-      return c.json({ error: "quantity must be at least 1" }, 400);
+    if (!Number.isInteger(qty) || qty < 1) {
+      return c.json({ error: "quantity must be a whole number of at least 1" }, 400);
     }
 
     const item = await prisma.cartItem.findUnique({

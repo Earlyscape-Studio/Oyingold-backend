@@ -47,7 +47,10 @@ export const adminUsers = new Hono<AppEnv>()
       return c.json(updated, 200);
     }
 
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email);
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
 
     if (error || !data?.user?.id) {
       return c.json(
