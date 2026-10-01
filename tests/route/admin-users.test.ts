@@ -16,7 +16,7 @@ const mockSupabase = {
   auth: {
     getUser: vi.fn(),
     admin: {
-      inviteUserByEmail: vi.fn(),
+      createUser: vi.fn(),
     },
   },
 };
@@ -155,7 +155,7 @@ describe("POST /admin/users", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(mockSupabase.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+    expect(mockSupabase.auth.admin.createUser).not.toHaveBeenCalled();
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "existing-1" },
@@ -186,7 +186,7 @@ describe("POST /admin/users", () => {
 
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
-    mockSupabase.auth.admin.inviteUserByEmail.mockResolvedValueOnce({
+    mockSupabase.auth.admin.createUser.mockResolvedValueOnce({
       data: { user: { id: "new-supabase-id" } },
       error: null,
     } as any);
@@ -203,9 +203,10 @@ describe("POST /admin/users", () => {
     });
 
     expect(res.status).toBe(201);
-    expect(mockSupabase.auth.admin.inviteUserByEmail).toHaveBeenCalledWith(
-      "brandnew@example.com"
-    );
+    expect(mockSupabase.auth.admin.createUser).toHaveBeenCalledWith({
+      email: "brandnew@example.com",
+      email_confirm: true,
+    });
     expect(mockPrisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
@@ -222,7 +223,7 @@ describe("POST /admin/users", () => {
 
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
-    mockSupabase.auth.admin.inviteUserByEmail.mockResolvedValueOnce({
+    mockSupabase.auth.admin.createUser.mockResolvedValueOnce({
       data: null,
       error: { message: "Email rate limit exceeded" },
     } as any);
