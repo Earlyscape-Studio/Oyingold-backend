@@ -51,7 +51,7 @@ export const orders = new Hono<AppEnv>()
     return c.json(list);
   })
 
-  .get("/id", requireAdmin, async (c) => {
+  .get("/:id", requireAdmin, async (c) => {
     const prisma = c.get("prisma");
     const id = c.req.param("id");
 
@@ -83,10 +83,10 @@ export const orders = new Hono<AppEnv>()
     return c.json(order);
   })
 
-  .patch("/:id/statuus", requireAdmin, async (c) => {
+  .patch("/:id/status", requireAdmin, async (c) => {
     const prisma = c.get("prisma");
     const id = c.req.param("id");
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => null);
 
     const { status, trackingNumber } = body ?? {};
 
@@ -102,7 +102,7 @@ export const orders = new Hono<AppEnv>()
     }
 
     const data: Record<string, unknown> = { status };
-    if (trackingNumber !== "undefined")
+    if (trackingNumber !== undefined)
       data.trackingNumber = trackingNumber || null;
 
     try {
@@ -136,4 +136,3 @@ export const orders = new Hono<AppEnv>()
       throw err;
     }
   });
-  

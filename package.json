@@ -9,6 +9,7 @@
     "migrate": "npx prisma migrate dev --name",
     "generate": "npx prisma generate",
     "seed": "npx prisma db seed",
+    "seed:orders": "tsx prisma/seed-orders.ts",
     "studio": "npx prisma studio"
   },
   "dependencies": {
