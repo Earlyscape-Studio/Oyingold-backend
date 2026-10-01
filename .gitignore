@@ -29,6 +29,9 @@ lerna-debug.log*
 .dev.vars
 
 /generated/prisma
+/generated/prisma-node
+
+fix-db.mjs
 
 wrangler.jsonc
 
