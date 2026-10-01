@@ -17,6 +17,7 @@ const mockPrisma = {
     findUnique: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
+    upsert: vi.fn(),
   },
 };
 
@@ -131,8 +132,7 @@ describe("POST /cart/items", () => {
       stockLevel: 10,
     } as any);
 
-    mockPrisma.cartItem.findUnique.mockResolvedValueOnce(null);
-    mockPrisma.cartItem.create.mockResolvedValueOnce({} as any);
+    mockPrisma.cartItem.upsert.mockResolvedValueOnce({} as any);
 
     // First call is getOrCreateCart's lookup, second is the final refetch
     // after the item is created.
@@ -149,6 +149,42 @@ describe("POST /cart/items", () => {
     });
 
     expect(res.status).toBe(201);
-    expect(mockPrisma.cartItem.create).toHaveBeenCalled();
+    expect(mockPrisma.cartItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ quantity: 1, pricingType: "carton" }),
+        update: { quantity: { increment: 1 } },
+      })
+    );
+  });
+
+  it("rejects a fractional quantity instead of crashing", async () => {
+    mockAsAuthedUser();
+
+    const res = await postItems({
+      productVariantId: "v4",
+      pricingType: "carton",
+      quantity: 1.5,
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.cartItem.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unreadable request body with a 400", async () => {
+    mockAsAuthedUser();
+
+    const res = await withMocks(cart, {
+      prisma: mockPrisma,
+      supabase: mockSupabase,
+    }).request("/items", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer fake-token",
+      },
+      body: "not json",
+    });
+
+    expect(res.status).toBe(400);
   });
 });
