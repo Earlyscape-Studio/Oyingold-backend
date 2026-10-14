@@ -87,6 +87,41 @@ describe("GET /products", () => {
     );
   });
 
+  it("caps results with limit and ranks names that start with the query first", async () => {
+    const startsWith = { ...fakeProduct, id: "p-start", name: "Dano Full Cream Milk" };
+    const contains = { ...fakeProduct, id: "p-contains", name: "Peak Dano Blend" };
+    mockPrisma.product.findMany
+      .mockResolvedValueOnce([startsWith] as any)
+      .mockResolvedValueOnce([contains] as any);
+
+    const res = await client().index.$get({ query: { q: "dano", limit: "6" } });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.map((p: any) => p.id)).toEqual(["p-start", "p-contains"]);
+    expect(mockPrisma.product.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ take: 6 })
+    );
+    expect(mockPrisma.product.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        take: 5,
+        where: expect.objectContaining({ id: { notIn: ["p-start"] } }),
+      })
+    );
+  });
+
+  it("clamps an oversized limit to 50", async () => {
+    mockPrisma.product.findMany.mockResolvedValueOnce([fakeProduct] as any);
+
+    await client().index.$get({ query: { limit: "9999" } });
+
+    expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50 })
+    );
+  });
+
   it("filters category by slug when provided", async () => {
     mockPrisma.product.findMany.mockResolvedValueOnce([fakeProduct] as any);
     await client().index.$get({ query: { category: "vegetable-oil" } });
