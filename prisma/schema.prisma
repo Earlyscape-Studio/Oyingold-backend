@@ -47,6 +47,7 @@ model User {
   orders    Order[]
   cart      Cart?
   addresses Address[]
+  wishlist  WishlistItem[]
 }
 
 model Address {
@@ -100,9 +101,23 @@ model Product {
   category    Category        @relation(fields: [categoryId], references: [id])
   brand       Brand           @relation(fields: [brandId], references: [id])
   variants    ProductVariant[]
+  wishlistItems WishlistItem[]
 
   @@index([categoryId])
   @@index([brandId])
+}
+
+model WishlistItem {
+  id        String  @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
 }
 
 model ProductVariant {
