@@ -16,6 +16,7 @@ import { mailMiddleware } from "@/middlewares/mail.js";
 import type {AppEnv} from "@/types/hono.js";
 import {me} from "@/routes/me.js";
 import {adminUsers} from "@/routes/admin-users.js";
+import {wishlist} from "@/routes/wishlist.js";
 
 const app = new Hono<AppEnv>();
 
@@ -51,16 +52,11 @@ app.route("/orders", orders)
 app.route("/dashboard", dashboard)
 app.route("/cart", cart)
 app.route("/me", me)
+app.route("/wishlist", wishlist)
 app.route("/admin/users", adminUsers)
 
 
 app.route("/health", health);
 
-// serve({
-//   fetch: app.fetch,
-//   port: Number(process.env.PORT) || 8000
-// }, (info) => {
-//   console.log(`Server is running on http://localhost:${info.port}`)
-// })
 
 export default app;
