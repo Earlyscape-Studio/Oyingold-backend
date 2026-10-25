@@ -26,6 +26,22 @@ enum Role {
   CUSTOMER
 }
 
+enum PaymentMethod {
+  CARD
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum CheckoutMode {
+  INLINE
+  STANDARD
+}
+
 enum OrderStatus {
   PENDING_PAYMENT
   UNFULFILLED
@@ -145,16 +161,43 @@ model Order {
   orderNumber Int        @unique @default(autoincrement()) // shown to customers as OG-000123
   userId     String
   status     OrderStatus @default(PENDING_PAYMENT)
+
+  // Money. totalAmount = subtotal + shippingFee + paymentFee - discount.
+  // All of these are computed server-side; the client never sends them.
+  subtotal    Decimal    @default(0) @db.Decimal(12, 2)
+  shippingFee Decimal    @default(0) @db.Decimal(12, 2)
+  paymentFee  Decimal    @default(0) @db.Decimal(12, 2) // gateway fee passed to the customer; always 0 for COD
+  discount    Decimal    @default(0) @db.Decimal(12, 2)
   totalAmount Decimal    @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod @default(CARD)
+
+  // Contact details captured at checkout (nullable so pre-checkout orders stay valid).
+  contactEmail String?
+  contactPhone String?
+  companyName  String?
+  notes        String?
+
   trackingNumber String?
-  shippingAddress Json?  // snapshot of the delivery address at checkout
+
+  // Snapshot of the delivery address at checkout:
+  // { fullName, phone, street, city, state, country, zipCode? }
+  shippingAddress Json?
+
+  // Set when a paid order can't be fulfilled as-is (e.g. stock ran out between
+  // order creation and payment confirmation). Surfaced to admins for follow-up.
+  needsAttention       Boolean @default(false)
+  needsAttentionReason String?
+
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
   user       User        @relation(fields: [userId], references: [id])
   items      OrderItem[]
+  payments   Payment[]
 
   @@index([userId])
+  @@index([needsAttention])
 }
 
 model OrderItem {
@@ -196,4 +239,44 @@ model CartItem {
 
   @@unique([cartId, productVariantId, pricingType])
   @@index([cartId])
+}
+
+// One row per payment attempt. An order can have several (e.g. a failed card
+// attempt followed by a retry). COD orders have no Payment row.
+model Payment {
+  id               String        @id @default(uuid())
+  orderId          String
+  reference        String        @unique // our reference, sent to FCMB as tranref / paymentReference
+  gatewayReference String?       // FCMB's reference, known once the gateway responds
+  checkoutMode     CheckoutMode
+  amount           Decimal       @db.Decimal(12, 2) // what we asked the customer to pay
+  fee              Decimal?      @db.Decimal(12, 2) // fee reported by the gateway
+  status           PaymentStatus @default(PENDING)
+  gatewayCode      String?       // e.g. "00", "S12", "SM_51"
+  gatewayMessage   String?
+  channel          String?       // e.g. "card"
+  rawResponse      Json?         // last verify (status query) response
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  order            Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// Every webhook notification item is stored before any processing, as FCMB's docs advise.
+// eventId is unique, so retried notifications are not processed twice.
+model WebhookEvent {
+  id          String    @id @default(uuid())
+  eventId     String    @unique
+  eventType   String
+  reference   String?   // transaction reference from the payload, if present
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@index([reference])
 }

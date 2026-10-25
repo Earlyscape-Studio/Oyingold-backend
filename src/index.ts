@@ -10,6 +10,9 @@ import {health} from "@/routes/health.js"
 import {orders} from "@/routes/orders.js"
 import {dashboard} from "@/routes/dashboard.js"
 import {cart} from "@/routes/cart.js";
+import {checkout} from "@/routes/checkout.js";
+import {payments} from "@/routes/payments.js";
+import {webhooks} from "@/routes/webhooks.js";
 import { dbMiddleware } from "@/middlewares/db.js";
 import { supabaseMiddleware } from "@/middlewares/supabase.js";
 import { mailMiddleware } from "@/middlewares/mail.js";
@@ -51,6 +54,9 @@ app.route("/brands", brands)
 app.route("/orders", orders)
 app.route("/dashboard", dashboard)
 app.route("/cart", cart)
+app.route("/checkout", checkout)
+app.route("/payments", payments)
+app.route("/webhooks", webhooks)
 app.route("/me", me)
 app.route("/wishlist", wishlist)
 app.route("/admin/users", adminUsers)
