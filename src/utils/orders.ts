@@ -51,6 +51,15 @@ type OrderRow = {
   orderNumber: number;
   status: OrderStatus;
   totalAmount: unknown;
+  subtotal: unknown;
+  shippingFee: unknown;
+  paymentFee: unknown;
+  discount: unknown;
+  paymentMethod: "CARD" | "COD";
+  contactEmail: string | null;
+  contactPhone: string | null;
+  companyName: string | null;
+  notes: string | null;
   trackingNumber: string | null;
   shippingAddress: unknown;
   createdAt: Date;
@@ -66,6 +75,11 @@ type OrderRow = {
   }>;
 };
 
+// Decimal columns arrive as Decimal objects; missing values count as 0.
+function money(value: unknown): number {
+  return value == null ? 0 : Number(value);
+}
+
 export function presentOrder(order: OrderRow) {
   return {
     id: order.id,
@@ -73,6 +87,18 @@ export function presentOrder(order: OrderRow) {
     status: order.status,
     step: STATUS_TO_STEP[order.status],
     total: Number(order.totalAmount),
+    // Orders from before checkout existed have no breakdown, so their subtotal is their total.
+    subtotal: order.subtotal == null ? Number(order.totalAmount) : money(order.subtotal),
+    shippingFee: money(order.shippingFee),
+    paymentFee: money(order.paymentFee),
+    discount: money(order.discount),
+    paymentMethod: order.paymentMethod ?? "CARD",
+    contact: {
+      email: order.contactEmail ?? null,
+      phone: order.contactPhone ?? null,
+      companyName: order.companyName ?? null,
+    },
+    notes: order.notes ?? null,
     trackingNumber: order.trackingNumber,
     shippingAddress: order.shippingAddress,
     createdAt: order.createdAt,

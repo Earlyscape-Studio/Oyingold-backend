@@ -19,7 +19,8 @@ export const dashboard = new Hono<AppEnv>()
             todayOrders,
             monthOrders,
             recentOrders,
-            lowStockVariants
+            lowStockVariants,
+            needsAttentionCount
         ] = await Promise.all([
             prisma.order.findMany({
                 where: {
@@ -60,7 +61,8 @@ export const dashboard = new Hono<AppEnv>()
              JOIN "Product" p ON p.id = pv."productId"
              WHERE pv."stockLevel" <= pv."lowStockThreshold"
              ORDER BY pv."stockLevel" ASC
-            `
+            `,
+            prisma.order.count({where: {needsAttention: true}})
         ]);
 
         const sumSales = (rows: {totalAmount: any}[]) => rows.reduce((sum, o) => sum + Number(o.totalAmount), 0);
@@ -80,6 +82,7 @@ export const dashboard = new Hono<AppEnv>()
             },
             recentOrders,
             lowStockVariants,
+            needsAttentionCount,
             note: "conversionRate, siteTraffic and recentReviews are not yet available - no analytics source or review model exists in the schema."
         });
 
