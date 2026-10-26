@@ -15,7 +15,7 @@ const VALID_STATUSES = [
 export const orders = new Hono<AppEnv>()
   .get("/", requireAdmin, async (c) => {
     const prisma = c.get("prisma");
-    const { status } = c.req.query();
+    const { status, needsAttention } = c.req.query();
 
     if (status && !VALID_STATUSES.includes(status as any)) {
       return c.json(
@@ -24,8 +24,15 @@ export const orders = new Hono<AppEnv>()
       );
     }
 
+    if (needsAttention !== undefined && needsAttention !== "true") {
+      return c.json({ error: "needsAttention can only be 'true'" }, 400);
+    }
+
     const list = await prisma.order.findMany({
-      where: status ? { status: status as any } : {},
+      where: {
+        ...(status ? { status: status as any } : {}),
+        ...(needsAttention === "true" ? { needsAttention: true } : {}),
+      },
       include: {
         user: {
           select: {
@@ -71,6 +78,24 @@ export const orders = new Hono<AppEnv>()
                 product: true,
               },
             },
+          },
+        },
+        // Every payment attempt, newest first, so a flagged order can be traced to its gateway reference.
+        payments: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            reference: true,
+            gatewayReference: true,
+            checkoutMode: true,
+            amount: true,
+            fee: true,
+            status: true,
+            gatewayCode: true,
+            gatewayMessage: true,
+            channel: true,
+            paidAt: true,
+            createdAt: true,
           },
         },
       },
@@ -126,6 +151,27 @@ export const orders = new Hono<AppEnv>()
             },
           },
         },
+      });
+
+      return c.json(updated);
+    } catch (err: any) {
+      if (err?.code === "P2025") {
+        return c.json({ error: "Order not found" }, 404);
+      }
+      throw err;
+    }
+  })
+
+  // An admin has dealt with a flagged order (refunded, contacted the customer, ...).
+  .patch("/:id/attention", requireAdmin, async (c) => {
+    const prisma = c.get("prisma");
+    const id = c.req.param("id");
+
+    try {
+      const updated = await prisma.order.update({
+        where: { id },
+        data: { needsAttention: false, needsAttentionReason: null },
+        select: { id: true, needsAttention: true, needsAttentionReason: true },
       });
 
       return c.json(updated);
