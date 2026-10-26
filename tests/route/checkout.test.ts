@@ -68,7 +68,7 @@ function createdOrder(overrides: any = {}) {
   return {
     id: "o1",
     orderNumber: 42,
-    status: "UNFULFILLED",
+    status: "PENDING_PAYMENT",
     totalAmount: "22500",
     subtotal: "21000",
     shippingFee: "1500",
@@ -193,7 +193,7 @@ describe("POST /checkout", () => {
     expect(res.status).toBe(409);
   });
 
-  it("places a COD order: deducts stock in pieces, clears the cart, no payment row", async () => {
+  it("places a COD order: deducts stock in pieces, stays pending until an admin confirms, clears the cart, no payment row", async () => {
     mockAsAuthedUser();
     mockPrisma.cart.findUnique.mockResolvedValueOnce(cartWith([cartItem()]));
     mockTx.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
@@ -210,7 +210,7 @@ describe("POST /checkout", () => {
     expect(mockTx.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: "UNFULFILLED",
+          status: "PENDING_PAYMENT",
           paymentMethod: "COD",
           subtotal: 21000,
           shippingFee: 1500,

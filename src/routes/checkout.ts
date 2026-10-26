@@ -313,7 +313,9 @@ export const checkout = new Hono<AppEnv>()
   try {
     if (input.paymentMethod === "COD") {
       // COD: stock comes off now. Each decrement only succeeds if enough stock
-      // is still there, so a lost race rolls the whole order back.
+      // is still there, so a lost race rolls the whole order back. The order
+      // stays PENDING_PAYMENT until an admin confirms it (UNFULFILLED, shown to
+      // customers as "Payment Confirmed"): no money has changed hands yet.
       const order = await prisma.$transaction(async (tx) => {
         for (const [variantId, need] of stockNeeded) {
           const result = await tx.productVariant.updateMany({
@@ -324,7 +326,7 @@ export const checkout = new Hono<AppEnv>()
         }
 
         const created = await tx.order.create({
-          data: { ...orderData, status: "UNFULFILLED" },
+          data: { ...orderData, status: "PENDING_PAYMENT" },
           include: CUSTOMER_ORDER_INCLUDE,
         });
 
