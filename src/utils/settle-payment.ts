@@ -255,6 +255,8 @@ async function settle(
     where: { id: payment.orderId },
     data: {
       status: "UNFULFILLED",
+      // Stock came off for this order, so cancelling it can put it back.
+      ...(options.deductStock ? { stockDeducted: true } : {}),
       ...(options.shortage
         ? {
             needsAttention: true,

@@ -189,6 +189,10 @@ model Order {
   needsAttention       Boolean @default(false)
   needsAttentionReason String?
 
+  // True while this order's stock is deducted. Lets a cancellation put the stock back
+  // exactly once. Orders from before this existed never had a deduction to undo.
+  stockDeducted Boolean @default(false)
+
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 

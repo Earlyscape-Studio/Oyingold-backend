@@ -4,7 +4,9 @@ import { withMocks } from "../utils/with-mocks.js";
 
 const mockPrisma = {
   user: { findUnique: vi.fn() },
-  order: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  order: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+  productVariant: { update: vi.fn() },
+  $transaction: vi.fn(async (fn: any) => fn(mockPrisma)),
 };
 const mockSupabase = { auth: { getUser: vi.fn() } };
 
@@ -132,5 +134,105 @@ describe("PATCH /orders/:id/attention", () => {
     const res = await call("/missing/attention", { method: "PATCH" });
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("PATCH /orders/:id/status", () => {
+  const items = [
+    { productVariantId: "v1", pricingType: "carton", quantity: 2, productVariant: { unitsPerCarton: 12 } },
+    { productVariantId: "v1", pricingType: "piece", quantity: 3, productVariant: { unitsPerCarton: 12 } },
+    { productVariantId: "v2", pricingType: "piece", quantity: 5, productVariant: { unitsPerCarton: 6 } },
+  ];
+
+  const patch = (body: unknown) =>
+    call("/o1/status", { method: "PATCH", body: JSON.stringify(body) });
+
+  it("rejects an unknown status", async () => {
+    mockAsAdmin();
+    const res = await patch({ status: "TELEPORTED" });
+    expect(res.status).toBe(400);
+  });
+
+  it("404s for an unknown order", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce(null);
+    const res = await patch({ status: "PROCESSING" });
+    expect(res.status).toBe(404);
+  });
+
+  it("updates a normal status change without touching stock", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce({ status: "UNFULFILLED", items });
+    mockPrisma.order.update.mockResolvedValueOnce({ id: "o1", status: "PROCESSING" });
+
+    const res = await patch({ status: "PROCESSING", trackingNumber: "TRK1" });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "PROCESSING", trackingNumber: "TRK1" } })
+    );
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.productVariant.update).not.toHaveBeenCalled();
+  });
+
+  it("puts the stock back, in pieces and once per variant, when an order with deducted stock is cancelled", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce({ status: "PENDING_PAYMENT", items });
+    mockPrisma.order.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.order.update.mockResolvedValueOnce({ id: "o1", status: "CANCELLED" });
+
+    const res = await patch({ status: "CANCELLED" });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
+      where: { id: "o1", stockDeducted: true },
+      data: { stockDeducted: false },
+    });
+    // v1: 2 cartons x 12 + 3 pieces = 27; v2: 5 pieces
+    expect(mockPrisma.productVariant.update).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.productVariant.update).toHaveBeenCalledWith({
+      where: { id: "v1" },
+      data: { stockLevel: { increment: 27 } },
+    });
+    expect(mockPrisma.productVariant.update).toHaveBeenCalledWith({
+      where: { id: "v2" },
+      data: { stockLevel: { increment: 5 } },
+    });
+  });
+
+  it("restores nothing when no stock was deducted (unpaid card order, or one from before checkout)", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce({ status: "PENDING_PAYMENT", items });
+    mockPrisma.order.updateMany.mockResolvedValueOnce({ count: 0 });
+    mockPrisma.order.update.mockResolvedValueOnce({ id: "o1", status: "CANCELLED" });
+
+    const res = await patch({ status: "CANCELLED" });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.productVariant.update).not.toHaveBeenCalled();
+    expect(mockPrisma.order.update).toHaveBeenCalled();
+  });
+
+  it("doesn't restore stock again for an order that is already cancelled", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce({ status: "CANCELLED", items });
+    mockPrisma.order.update.mockResolvedValueOnce({ id: "o1", status: "CANCELLED" });
+
+    const res = await patch({ status: "CANCELLED", trackingNumber: "TRK2" });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.productVariant.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to reopen a cancelled order", async () => {
+    mockAsAdmin();
+    mockPrisma.order.findUnique.mockResolvedValueOnce({ status: "CANCELLED", items });
+
+    const res = await patch({ status: "UNFULFILLED" });
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/can't be reopened/);
+    expect(mockPrisma.order.update).not.toHaveBeenCalled();
   });
 });

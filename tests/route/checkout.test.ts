@@ -3,10 +3,19 @@ import { checkout } from "@/routes/checkout.js";
 import { withMocks } from "../utils/with-mocks.js";
 
 const mockTx = {
-  productVariant: { updateMany: vi.fn() },
-  order: { create: vi.fn() },
-  payment: { create: vi.fn() },
-  cartItem: { deleteMany: vi.fn() },
+  productVariant: {
+    updateMany: vi.fn(),
+  },
+  order: {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  payment: {
+    create: vi.fn(),
+  },
+  cartItem: {
+    deleteMany: vi.fn(),
+  },
 };
 
 const mockPrisma = {
