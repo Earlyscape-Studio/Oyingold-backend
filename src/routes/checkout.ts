@@ -326,7 +326,8 @@ export const checkout = new Hono<AppEnv>()
         }
 
         const created = await tx.order.create({
-          data: { ...orderData, status: "PENDING_PAYMENT" },
+          // stockDeducted lets a later cancellation put the stock back exactly once.
+          data: { ...orderData, status: "PENDING_PAYMENT", stockDeducted: true },
           include: CUSTOMER_ORDER_INCLUDE,
         });
 
@@ -339,6 +340,15 @@ export const checkout = new Hono<AppEnv>()
       // Card: no stock change and the cart stays put until payment is confirmed,
       // so a failed payment doesn't cost the customer their cart.
       const { order, payment } = await prisma.$transaction(async (tx) => {
+        // Starting a new card order replaces any unpaid ones the customer left
+        // behind (closed the popup, changed their mind). They hold no stock, so
+        // there is nothing to put back. If one of them is paid in the meantime
+        // the payment is flagged for an admin instead of being lost.
+        await tx.order.updateMany({
+          where: { userId: user.id, paymentMethod: "CARD", status: "PENDING_PAYMENT" },
+          data: { status: "CANCELLED" },
+        });
+
         const created = await tx.order.create({
           data: { ...orderData, status: "PENDING_PAYMENT" },
           include: CUSTOMER_ORDER_INCLUDE,

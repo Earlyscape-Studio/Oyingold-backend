@@ -141,9 +141,10 @@ describe("verifyAndSettle", () => {
       where: { id: "v1", stockLevel: { gte: 27 } },
       data: { stockLevel: { decrement: 27 } },
     });
+    // Marked as deducted, so a later cancellation can put the stock back.
     expect(db.order.update).toHaveBeenCalledWith({
       where: { id: "o1" },
-      data: { status: "UNFULFILLED" },
+      data: { status: "UNFULFILLED", stockDeducted: true },
     });
     expect(db.cartItem.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -205,6 +206,8 @@ describe("verifyAndSettle", () => {
         needsAttentionReason: expect.stringContaining("Indomie"),
       }),
     });
+    // No stock came off, so there is nothing to put back on cancellation.
+    expect(db.order.update.mock.calls[0][0].data).not.toHaveProperty("stockDeducted");
   });
 
   it("flags a duplicate payment and leaves the order and stock alone", async () => {
