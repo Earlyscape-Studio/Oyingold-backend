@@ -141,6 +141,7 @@ export const me = new Hono<AppEnv>()
         street: a.street,
         city: a.city,
         state: a.state,
+        lga: a.lga,
         country: a.country,
         isDefault: a.isDefault,
         isLastUsed: a.id === lastUsedId,

@@ -12,6 +12,13 @@ export type Bindings = {
     CARD_FEE_FLAT?: string;      // naira added on top of the percentage
     CARD_FEE_CAP?: string;       // naira, maximum card fee
 
+    // Fez Delivery (see src/utils/fez.ts): quotes the delivery cost by state at checkout.
+    // Falls back to FLAT_SHIPPING_FEE when these are unset or Fez is unreachable.
+    FEZ_USER_ID?: string;        // secret: `wrangler secret put` / .dev.vars
+    FEZ_PASSWORD?: string;       // secret
+    FEZ_BASE_URL?: string;       // defaults to the sandbox, so set the production URL explicitly
+    FEZ_PICKUP_STATE?: string;   // optional; Fez otherwise uses the state on your org profile
+
     // FCMB Pay (see src/utils/fcmb.ts). The keys are secrets: set them with
     // `wrangler secret put` in production and in .dev.vars locally, never in wrangler.jsonc.
     FCMB_PUBLIC_KEY?: string;

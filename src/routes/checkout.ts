@@ -3,6 +3,8 @@ import type { AppEnv } from "@/types/hono.js";
 import { requireAuth } from "@/middlewares/require-auth.js";
 import { CUSTOMER_ORDER_INCLUDE, presentOrder } from "@/utils/orders.js";
 import { makePaymentReference } from "@/utils/payments.js";
+import { resolveShippingFeeKobo, type FezEnv } from "@/utils/fez.js";
+import { isLgaOfState, isNigerianState } from "@/data/nigeria-locations.js";
 import {
   buildTotals,
   stockUnitsForLine,
@@ -24,6 +26,7 @@ type CheckoutInput = {
     street: string;
     city: string;
     state: string;
+    lga: string;
     country: string;
     zipCode: string | null;
   };
@@ -94,6 +97,7 @@ function parseBody(
   const street = str(a.street, 300);
   const city = str(a.city, 100);
   const state = str(a.state, 100);
+  const lga = str(a.lga, 100);
   const country = str(a.country, 100);
   const zipCode = optionalStr(a.zipCode, 20);
 
@@ -102,6 +106,15 @@ function parseBody(
       error:
         "shippingAddress needs fullName, phone, street, city, state and country",
     };
+  }
+  if (!isNigerianState(state)) {
+    return { error: "shippingAddress.state is not a valid Nigerian state" };
+  }
+  if (!lga) {
+    return { error: "shippingAddress.lga (local government area) is required" };
+  }
+  if (!isLgaOfState(state, lga)) {
+    return { error: "shippingAddress.lga is not a local government area of the chosen state" };
   }
   if (!PHONE_RE.test(addressPhone)) {
     return { error: "shippingAddress.phone is not a valid phone number" };
@@ -126,6 +139,7 @@ function parseBody(
         street,
         city,
         state,
+        lga,
         country,
         zipCode,
       },
@@ -219,7 +233,7 @@ export const checkout = new Hono<AppEnv>()
   .get("/quote", requireAuth, async (c) => {
     const prisma = c.get("prisma");
     const user = c.get("user");
-    const env = (c.env ?? {}) as PricingEnv;
+    const env = (c.env ?? {}) as PricingEnv & FezEnv;
     const state = (c.req.query("state") ?? "").trim().slice(0, 100);
 
     const cart = await prisma.cart.findUnique({
@@ -232,18 +246,20 @@ export const checkout = new Hono<AppEnv>()
     }
 
     const { subtotalKobo } = priceCart(cart.items);
+    // The same delivery fee applies to both payment methods, so Fez is asked once.
+    const shippingFeeKobo = await resolveShippingFeeKobo(env, state);
 
     return c.json({
       quotes: {
-        CARD: buildTotals({ subtotalKobo, paymentMethod: "CARD", state, env }),
-        COD: buildTotals({ subtotalKobo, paymentMethod: "COD", state, env }),
+        CARD: buildTotals({ subtotalKobo, paymentMethod: "CARD", state, env, shippingFeeKobo }),
+        COD: buildTotals({ subtotalKobo, paymentMethod: "COD", state, env, shippingFeeKobo }),
       },
     });
   })
   .post("/", requireAuth, async (c) => {
   const prisma = c.get("prisma");
   const user = c.get("user");
-  const env = (c.env ?? {}) as PricingEnv;
+  const env = (c.env ?? {}) as PricingEnv & FezEnv;
 
   const parsed = parseBody(await c.req.json().catch(() => null));
   if ("error" in parsed) {
@@ -290,6 +306,7 @@ export const checkout = new Hono<AppEnv>()
     paymentMethod: input.paymentMethod,
     state: input.shippingAddress.state,
     env,
+    shippingFeeKobo: await resolveShippingFeeKobo(env, input.shippingAddress.state),
   });
 
   const orderData = {
@@ -401,6 +418,7 @@ export const checkout = new Hono<AppEnv>()
           street: a.street,
           city: a.city,
           state: a.state,
+          lga: a.lga,
           country: a.country,
           lastUsedAt: new Date(),
         },
