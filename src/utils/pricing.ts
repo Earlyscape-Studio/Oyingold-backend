@@ -50,9 +50,9 @@ export function stockUnitsForLine(line: {
 }
 
 /**
- * Shipping fee in kobo. Placeholder: a flat fee from FLAT_SHIPPING_FEE until
- * the client decides their shipping plan. The context argument is where
- * per-state or weight-based rules will plug in.
+ * Fallback shipping fee in kobo: a flat fee from FLAT_SHIPPING_FEE. Checkout
+ * normally charges the Fez delivery quote for the destination state instead (see
+ * utils/fez.ts) and only lands here when Fez isn't configured or can't answer.
  */
 export function calculateShippingFeeKobo(
   env: PricingEnv,
@@ -103,10 +103,13 @@ export function buildTotals(input: {
   paymentMethod: PaymentMethod;
   state: string;
   env: PricingEnv;
+  // The delivery quote for this order, if one was fetched; otherwise the flat fee applies.
+  shippingFeeKobo?: number;
 }): Totals {
   const { subtotalKobo, paymentMethod, state, env } = input;
 
-  const shippingKobo = calculateShippingFeeKobo(env, { state, subtotalKobo });
+  const shippingKobo =
+    input.shippingFeeKobo ?? calculateShippingFeeKobo(env, { state, subtotalKobo });
   const discountKobo = Math.min(calculateDiscountKobo(), subtotalKobo);
 
   // The card fee is charged on what the customer would otherwise pay.

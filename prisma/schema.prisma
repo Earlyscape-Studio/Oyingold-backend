@@ -74,6 +74,7 @@ model Address {
   street     String
   city       String
   state      String
+  lga        String?   // local government area; null on addresses saved before it was collected
   country    String    @default("Nigeria")
   isDefault  Boolean   @default(false)
   lastUsedAt DateTime? // set whenever checkout uses this address

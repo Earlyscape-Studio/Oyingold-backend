@@ -72,6 +72,18 @@ describe("buildTotals", () => {
     });
   });
 
+  it("charges a supplied shipping quote instead of the flat fee", () => {
+    const t = buildTotals({
+      subtotalKobo: 2100000,
+      paymentMethod: "COD",
+      state: "Kano",
+      env,
+      shippingFeeKobo: 645000,
+    });
+    expect(t.shippingFee).toBe(6450);
+    expect(t.total).toBe(27450);
+  });
+
   it("never charges a card fee for COD", () => {
     const t = buildTotals({ subtotalKobo: 2100000, paymentMethod: "COD", state: "Lagos", env });
     expect(t.paymentFee).toBe(0);

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { checkout } from "@/routes/checkout.js";
 import { withMocks } from "../utils/with-mocks.js";
+import { resetFezCache } from "@/utils/fez.js";
 
 const mockTx = {
   productVariant: {
@@ -69,6 +70,7 @@ const validBody = {
     street: "25 City Drive",
     city: "Victoria Island",
     state: "Lagos",
+    lga: "Eti-Osa",
     country: "Nigeria",
   },
 };
@@ -150,6 +152,81 @@ describe("GET /checkout/quote", () => {
   });
 });
 
+describe("shipping from Fez", () => {
+  const FEZ_ENV = {
+    ...ENV,
+    FEZ_USER_ID: "G-1",
+    FEZ_PASSWORD: "pw",
+    FEZ_BASE_URL: "https://fez.test/v1",
+  };
+  const fetchMock = vi.fn();
+
+  function quoteWithFez(query: string) {
+    return withMocks(checkout, { prisma: mockPrisma, supabase: mockSupabase }).request(
+      `/quote${query}`,
+      { headers: { Authorization: "Bearer fake-token" } },
+      FEZ_ENV
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    resetFezCache();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses Fez's delivery cost for the state in the quote", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "Success",
+            authDetails: { authToken: "t" },
+            orgDetails: { "secret-key": "s" },
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: "Success", totalCost: 6450 }))
+      );
+    mockAsAuthedUser();
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(cartWith([cartItem()]));
+
+    const body = await (await quoteWithFez("?state=Kano")).json();
+
+    expect(body.quotes.COD).toMatchObject({ shippingFee: 6450, total: 27450 });
+    expect(body.quotes.CARD).toMatchObject({ shippingFee: 6450 });
+  });
+
+  it("falls back to the flat fee when Fez is down", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockRejectedValue(new Error("network down"));
+    mockAsAuthedUser();
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(cartWith([cartItem()]));
+
+    const res = await quoteWithFez("?state=Kano");
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.quotes.COD).toMatchObject({ shippingFee: 1500, total: 22500 });
+  });
+
+  it("uses the flat fee when no state has been chosen yet", async () => {
+    mockAsAuthedUser();
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(cartWith([cartItem()]));
+
+    const body = await (await quoteWithFez("")).json();
+
+    expect(body.quotes.COD).toMatchObject({ shippingFee: 1500 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,6 +237,37 @@ describe("POST /checkout", () => {
     const res = await post({ ...validBody, paymentMethod: "PAYPAL" });
     expect(res.status).toBe(400);
     expect(mockPrisma.cart.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires a local government area", async () => {
+    mockAsAuthedUser();
+    const { lga: _lga, ...withoutLga } = validBody.shippingAddress;
+    const res = await post({ ...validBody, shippingAddress: withoutLga });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("lga");
+    expect(mockPrisma.cart.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects a local government that is not in the chosen state", async () => {
+    mockAsAuthedUser();
+    // Ikeja is in Lagos, not Oyo.
+    const res = await post({
+      ...validBody,
+      shippingAddress: { ...validBody.shippingAddress, state: "Oyo", lga: "Ikeja" },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("local government");
+    expect(mockPrisma.cart.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects a state that does not exist", async () => {
+    mockAsAuthedUser();
+    const res = await post({
+      ...validBody,
+      shippingAddress: { ...validBody.shippingAddress, state: "Atlantis" },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("state");
   });
 
   it("requires a checkoutMode for card payments", async () => {
