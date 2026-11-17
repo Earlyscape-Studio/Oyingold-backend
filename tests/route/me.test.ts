@@ -194,13 +194,16 @@ describe("GET /me/addresses", () => {
   it("flags the most recently used address", async () => {
     mockAsAuthedUser();
     mockPrisma.address.findMany.mockResolvedValueOnce([
-      { id: "a1", fullName: "Ada", phone: "1", street: "s", city: "c", state: "Lagos", country: "Nigeria", isDefault: true, lastUsedAt: new Date() },
-      { id: "a2", fullName: "Ada", phone: "1", street: "s2", city: "c", state: "Lagos", country: "Nigeria", isDefault: false, lastUsedAt: null },
+      { id: "a1", fullName: "Ada", phone: "1", street: "s", city: "c", state: "Lagos", lga: "Eti-Osa", country: "Nigeria", isDefault: true, lastUsedAt: new Date() },
+      { id: "a2", fullName: "Ada", phone: "1", street: "s2", city: "c", state: "Lagos", lga: null, country: "Nigeria", isDefault: false, lastUsedAt: null },
     ]);
 
     const body = await (await call("/addresses")).json();
 
     expect(body[0].isLastUsed).toBe(true);
     expect(body[1].isLastUsed).toBe(false);
+    // Addresses saved before LGAs were collected come back without one.
+    expect(body[0].lga).toBe("Eti-Osa");
+    expect(body[1].lga).toBeNull();
   });
 });
